@@ -7,182 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --ochre:#C8921A;
-  --black:#111110;
-  --off-white:#F8F5EF;
-  --gray:#888780;
-  --border:#D3D1C7;
-}
-body{
-  background:var(--off-white);
-  color:var(--black);
-  font-family:'Instrument Sans',sans-serif;
-  min-height:100vh;
-}
-a{color:inherit;text-decoration:none}
-
-/* HEADER */
-header{
-  border-bottom:1px solid var(--border);
-  padding:1.5rem 2rem;
-  display:flex;
-  align-items:baseline;
-  gap:1rem;
-  background:var(--off-white);
-  position:sticky;
-  top:0;
-  z-index:10;
-}
-.logo-mark{
-  font-family:'DM Serif Display',serif;
-  font-size:1.25rem;
-  letter-spacing:-0.02em;
-}
-.logo-mark span{color:var(--ochre)}
-.logo-sub{
-  font-size:0.7rem;
-  color:var(--gray);
-  letter-spacing:0.12em;
-  text-transform:uppercase;
-  font-family:'DM Mono',monospace;
-}
-nav{margin-left:auto;display:flex;gap:1.5rem}
-nav a{
-  font-size:0.8rem;
-  color:var(--gray);
-  letter-spacing:0.05em;
-  font-family:'DM Mono',monospace;
-  transition:color 0.15s;
-}
-nav a:hover{color:var(--black)}
-
-/* ARTICLE */
-.article-wrap{
-  max-width:660px;
-  margin:0 auto;
-  padding:3.5rem 2rem 5rem;
-}
-.article-eyebrow{
-  display:flex;
-  align-items:center;
-  gap:1rem;
-  margin-bottom:1.75rem;
-}
-.article-tag{
-  font-family:'DM Mono',monospace;
-  font-size:0.65rem;
-  letter-spacing:0.15em;
-  text-transform:uppercase;
-  color:var(--ochre);
-}
-.article-date{
-  font-family:'DM Mono',monospace;
-  font-size:0.65rem;
-  letter-spacing:0.08em;
-  color:var(--gray);
-}
-.article-dot{width:3px;height:3px;border-radius:50%;background:var(--border)}
-
-h1.article-title{
-  font-family:'DM Serif Display',serif;
-  font-size:clamp(2rem,4vw,3rem);
-  line-height:1.1;
-  letter-spacing:-0.03em;
-  margin-bottom:2.5rem;
-}
-h1.article-title em{
-  font-style:italic;
-  color:var(--ochre);
-}
-
-/* BODY CONTENT */
-.article-body{
-  font-size:1rem;
-  line-height:1.75;
-  color:#2C2C2A;
-}
-.article-body p{margin-bottom:1.5rem}
-.article-body h2{
-  font-family:'DM Serif Display',serif;
-  font-size:1.5rem;
-  letter-spacing:-0.02em;
-  margin:2.5rem 0 1rem;
-}
-.article-body h3{
-  font-family:'DM Serif Display',serif;
-  font-size:1.15rem;
-  margin:2rem 0 0.75rem;
-}
-.article-body ul,
-.article-body ol{
-  padding-left:1.5rem;
-  margin-bottom:1.5rem;
-}
-.article-body li{margin-bottom:0.4rem}
-.article-body blockquote{
-  border-left:2px solid var(--ochre);
-  padding-left:1.25rem;
-  margin:2rem 0;
-  color:var(--gray);
-  font-style:italic;
-}
-.article-body code{
-  font-family:'DM Mono',monospace;
-  font-size:0.85em;
-  background:#EDE9E0;
-  padding:0.15em 0.4em;
-  border-radius:3px;
-}
-.article-body pre{
-  background:#EDE9E0;
-  padding:1.25rem;
-  border-radius:6px;
-  overflow-x:auto;
-  margin-bottom:1.5rem;
-}
-.article-body pre code{background:none;padding:0;font-size:0.85rem}
-.article-body a{
-  color:var(--ochre);
-  text-decoration:underline;
-  text-underline-offset:2px;
-}
-.article-body hr{
-  border:none;
-  border-top:1px solid var(--border);
-  margin:2.5rem 0;
-}
-
-/* BACK LINK */
-.back-link{
-  display:inline-flex;
-  align-items:center;
-  gap:0.5rem;
-  margin-top:3rem;
-  font-family:'DM Mono',monospace;
-  font-size:0.7rem;
-  letter-spacing:0.1em;
-  text-transform:uppercase;
-  color:var(--gray);
-  transition:color 0.15s;
-}
-.back-link:hover{color:var(--black)}
-
-/* FOOTER */
-footer{
-  border-top:1px solid var(--border);
-  padding:1.5rem 2rem;
-  max-width:660px;
-  margin:0 auto;
-  display:flex;
-  align-items:center;
-}
-.footer-brand{font-family:'DM Serif Display',serif;font-size:0.9rem;color:var(--gray)}
-.footer-brand span{color:var(--ochre)}
-.footer-note{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--border);letter-spacing:0.08em}
-</style>
+<link rel="stylesheet" href="../css/style.css"/>
 </head>
 <body>
 
@@ -208,25 +33,27 @@ footer{
     <!-- POST TITLE -->
     <h1 class="article-title">Vaping: What Nobody Tells You Before You Start</h1>
 
+    <!-- POST IMAGE -->
+    <img src="../img/vaping-geekbar.jpg" alt="Vaping Geekbar Pulse" class="article-image" />
+
     <!-- POST BODY — write your content below -->
     <div class="article-body">
 
-      <p>I started vaping a month ago. I'm quitting while writing this.
+      <p>I started vaping a month ago. I'm quitting while writing this.</p>
 
-Nobody handed me a warning label. Nobody said: this thing reaches your brain in ten seconds, rewires your dopamine, and turns a casual habit into a need before you've even noticed. I just picked it up — because it looked harmless, because everyone around me had one, because it tasted like fruit and felt like nothing serious.
+      <p>Nobody handed me a warning label. Nobody said: this thing reaches your brain in ten seconds, rewires your dopamine, and turns a casual habit into a need before you've even noticed. I just picked it up — because it looked harmless, because everyone around me had one, because it tasted like fruit and felt like nothing serious.</p>
 
-That's the trap. It's designed to feel like nothing serious.
+      <p>That's the trap. It's designed to feel like nothing serious.</p>
 
-The vape industry learned from tobacco. Same playbook bright colors, clever flavors, social media influencers instead of magazine ads. And it worked. On me. On millions of people who thought they were too smart for cigarettes but somehow didn't see this coming.
+      <p>The vape industry learned from tobacco. Same playbook: bright colors, clever flavors, social media influencers instead of magazine ads. And it worked. On me. On millions of people who thought they were too smart for cigarettes but somehow didn't see this coming.</p>
 
-Here's what I know now, one month in: there is no safe version of this. The "safer than cigarettes" pitch is technically true and completely misleading. Scientists have found thousands of unidentified chemicals in vape aerosol  pesticides, heavy metals, flavoring compounds linked to permanent lung damage. The long-term picture is still being written, because vaping hasn't existed long enough to show us its worst. But the inflammation is already happening. The damage is already being done. We just can't see it yet.
+      <p>Here's what I know now, one month in: there is no safe version of this. The "safer than cigarettes" pitch is technically true and completely misleading. Scientists have found thousands of unidentified chemicals in vape aerosol — pesticides, heavy metals, flavoring compounds linked to permanent lung damage. The long-term picture is still being written, because vaping hasn't existed long enough to show us its worst. But the inflammation is already happening. The damage is already being done. We just can't see it yet.</p>
 
-I'm not a doctor. I'm someone who made a bad call and wants to be honest about it.
+      <p>I'm not a doctor. I'm someone who made a bad call and wants to be honest about it.</p>
 
-This is that honesty.
-</p>
+      <p>This is that honesty.</p>
 
-      <h2>What you'reactually inhaling</h2>
+      <h2>What you're actually inhaling</h2>
 
       <p>The aerosol is not water vapor. It's a chemically complex mixture created by heating e-liquid to around 200-400°C, and that's where things get ugly.</p>
 
