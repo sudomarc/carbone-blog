@@ -71,27 +71,28 @@ def select_image_for_category(category):
     """
     Selects high-quality, professional, stable public Unsplash images based on category.
     This fulfills the user's requirement to 'not generate pictures, use what is already on the web'.
+    To prevent Cumulative Layout Shift (CLS), we crop all selected images to a standard 16:9 ratio (800x450).
     """
     images = {
         "cybersecurity": [
-            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80", # glowing motherboard/cyber
-            "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=80", # digital pad / shield
-            "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=800&q=80"  # cyber security lock screen
+            "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&h=450&q=80", # glowing motherboard/cyber
+            "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&h=450&q=80", # digital pad / shield
+            "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=800&h=450&q=80"  # cyber security lock screen
         ],
         "technology": [
-            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80", # microchip circuit
-            "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&q=80", # laptop workspace code
-            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80"  # green code lines / matrix
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&h=450&q=80", # microchip circuit
+            "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&h=450&q=80", # laptop workspace code
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&h=450&q=80"  # green code lines / matrix
         ],
         "health": [
-            "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=800&q=80", # yoga / meditation / breathing
-            "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=800&q=80", # heart health / medical desk
-            "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80"  # healthy food/lifestyle
+            "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=800&h=450&q=80", # yoga / meditation / breathing
+            "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=800&h=450&q=80", # heart health / medical desk
+            "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&h=450&q=80"  # healthy food/lifestyle
         ],
         "science": [
-            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80", # deep space/satellite/science
-            "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&q=80", # test tubes / lab
-            "https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=800&q=80"  # glowing neon science concept
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&h=450&q=80", # deep space/satellite/science
+            "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&h=450&q=80", # test tubes / lab
+            "https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=800&h=450&q=80"  # glowing neon science concept
         ]
     }
     cat = category.lower()
@@ -432,7 +433,9 @@ def main():
     new_filename = f"posts/post-{filename_num}.html"
 
     # Render image placeholder tag
-    image_tag = f'<img src="{image_url}" alt="{post_data["category"]} post image" class="article-image" />'
+    # Explicit width and height prevent Cumulative Layout Shift (CLS).
+    # decoding="async" prevents decoding from blocking the main thread.
+    image_tag = f'<img src="{image_url}" alt="{post_data["category"]} post image" class="article-image" width="800" height="450" decoding="async" />'
 
     # Render the HTML post
     rendered_post = template \
