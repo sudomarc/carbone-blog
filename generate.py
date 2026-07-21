@@ -100,6 +100,112 @@ def select_image_for_category(category):
         cat = "technology"
     return random.choice(images[cat])
 
+def get_initial_draft_prompt(news_reference):
+    return f"""You are a professional technical, security, and science blogger writing for "Carbone Notes", a modern, clean, minimalist publication.
+
+Here is a list of recent news articles and updates. Your job is to select the most interesting, impactful, or insightful news story from this list, treat/analyze its core theme, and write a cohesive, high-quality, and deeply engaging blog post directly. Do not copy-paste directly. Write a thoughtful narrative.
+
+Recent News Context:
+{news_reference}
+
+The post must be structured as follows:
+CATEGORY: [Single lowercase word from: technology, cybersecurity, health, science. Make sure it matches the topic of your selected news!]
+TITLE: [An intriguing, non-clickbaity, punchy title - keep it to one clean line, optionally use <em>words</em> for emphasis]
+EXCERPT: [A single sentence summarization that serves as a beautiful teaser]
+BODY:
+[Write 3 to 5 well-crafted paragraphs. Break them up naturally. Use <h2> headings, blockquotes, or bullet points where appropriate. Write in a thoughtful, authentic, slightly self-deprecating or plain-spoken voice. No corporate marketing buzzwords.]
+
+OUTPUT ONLY raw text following that EXACT structure with headers "CATEGORY:", "TITLE:", "EXCERPT:", and "BODY:". Do not write any introduction or conclusion markdown wrappers.
+"""
+
+def parse_evaluation(text):
+    score = 7.0
+    critique = "No critique provided."
+    lines = text.strip().split("\n")
+    for line in lines:
+        line_clean = line.strip()
+        if line_clean.upper().startswith("SCORE:"):
+            try:
+                score = float(line_clean.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        elif line_clean.upper().startswith("CRITIQUE:"):
+            critique = line_clean.split(":", 1)[1].strip()
+    return score, critique
+
+def score_and_critique_draft(draft):
+    if not OPENROUTER_API_KEY:
+        return 10.0, "No OpenRouter API key configured. Skipping critique."
+
+    prompt = f"""You are an elite chief editor for "Carbone Notes". Your task is to critically evaluate a drafted blog post and provide an objective quality score and constructive critique.
+
+Analyze the draft on these criteria:
+1. Tone & Authenticity: Is it written in a thoughtful, plain-spoken, non-corporate voice?
+2. Depth & Insight: Does it treat and improve the news, adding real-world analysis, rather than just repeating headlines?
+3. Formatting: Are there proper HTML paragraph wrappers, h2 headings, blockquotes, or bullet points used where appropriate?
+
+Draft to evaluate:
+{draft}
+
+Your output MUST follow this exact format:
+SCORE: <float between 1.0 and 10.0>
+CRITIQUE: <one or two sentences of specific, actionable feedback on how to improve this post, refine its insights, or fix any issues>
+"""
+
+    models_to_try = [
+        "deepseek/deepseek-chat-v3-0324:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "openrouter/auto",
+        "qwen/qwen3-coder:free"
+    ]
+
+    for model in models_to_try:
+        try:
+            print(f"Requesting evaluation from OpenRouter using {model}...")
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/Patrickk2/carbone-blog",
+                    "X-Title": "Carbone Blog Quality Evaluator"
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.2
+                },
+                timeout=30
+            )
+            data = response.json()
+            if "choices" in data:
+                content = data["choices"][0]["message"]["content"]
+                score, critique = parse_evaluation(content)
+                return score, critique
+        except Exception as e:
+            print(f"Error evaluating draft with model {model}: {e}")
+
+    return 7.0, "Could not evaluate via LLM. Proceeding with fallback score."
+
+def get_refinement_prompt(draft, critique):
+    return f"""You are an expert editor refining a blog post for "Carbone Notes".
+You previously wrote this draft:
+{draft}
+
+An editor has provided the following critique to improve the post:
+"{critique}"
+
+Please rewrite, refine, and improve the post to address the critique. Ensure it treats and improves the news beautifully, with high-quality content, appropriate headings/quotes, and a compelling voice. Keep the exact same structured format as before:
+
+CATEGORY: [Single lowercase word from: technology, cybersecurity, health, science]
+TITLE: [An intriguing, non-clickbaity, punchy title - keep it to one clean line, optionally use <em>words</em> for emphasis]
+EXCERPT: [A single sentence summarization that serves as a beautiful teaser]
+BODY:
+[The refined paragraphs and structure]
+
+OUTPUT ONLY raw text following that EXACT structure. No preamble, no introduction or conclusion markdown wrappers.
+"""
+
 def generate_post_content(news_reference):
     """
     Calls OpenRouter LLM to write a blog post.
@@ -112,21 +218,12 @@ def generate_post_content(news_reference):
         print("OPENROUTER_API_KEY not configured. Generating via local high-quality template generator.")
         return get_mock_generated_post(category)
 
-    prompt = f"""You are a professional technical and security blogger writing for "Carbone Notes" (similar to a modern, clean, minimalist publication).
+    best_draft = None
+    best_score = -1.0
+    best_parsed_draft = None
 
-Create a short, engaging, and high-quality blog post. Focus on a specific tech, security, science, or wellness insight.
-Use this recent news as inspiration or context (do not copy-paste directly, instead analyze and write a cohesive story about its core theme):
-{news_reference}
-
-The post must be structured as follows:
-CATEGORY: [Single lowercase word from: technology, cybersecurity, health, science]
-TITLE: [An intriguing, non-clickbaity, punchy title - keep it to one clean line, optionally use <em>words</em> for emphasis]
-EXCERPT: [A single sentence summarization that serves as a beautiful teaser]
-BODY:
-[Write 3 to 5 well-crafted paragraphs. Break them up naturally. Use <h2> headings or bullet points where appropriate. Write in a thoughtful, authentic, slightly self-deprecating or plain-spoken voice. No corporate marketing buzzwords.]
-
-OUTPUT ONLY raw text following that EXACT structure with headers "CATEGORY:", "TITLE:", "EXCERPT:", and "BODY:". Do not write any introduction or conclusion markdown wrappers.
-"""
+    initial_prompt = get_initial_draft_prompt(news_reference)
+    current_draft = None
 
     models_to_try = [
         "deepseek/deepseek-chat-v3-0324:free",
@@ -137,7 +234,7 @@ OUTPUT ONLY raw text following that EXACT structure with headers "CATEGORY:", "T
 
     for model in models_to_try:
         try:
-            print(f"Requesting content from OpenRouter using {model}...")
+            print(f"Requesting initial draft from OpenRouter using {model}...")
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
@@ -148,30 +245,92 @@ OUTPUT ONLY raw text following that EXACT structure with headers "CATEGORY:", "T
                 },
                 json={
                     "model": model,
-                    "messages": [{"role": "user", "content": prompt}]
+                    "messages": [{"role": "user", "content": initial_prompt}]
                 },
                 timeout=45
             )
             data = response.json()
             if "choices" in data:
-                print("Successfully generated post using LLM!")
-                return parse_llm_output(data["choices"][0]["message"]["content"])
+                current_draft = data["choices"][0]["message"]["content"]
+                print("Successfully generated initial draft!")
+                break
         except Exception as e:
-            print(f"Error with model {model}: {e}")
+            print(f"Error drafting with model {model}: {e}")
 
-    print("Could not generate via LLM. Falling back to mock generator.")
-    return get_mock_generated_post(category)
+    if not current_draft:
+        print("Could not generate draft via LLM. Falling back to mock generator.")
+        return get_mock_generated_post(category)
+
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        print(f"\n--- Evaluation & Refinement Attempt {attempt}/{max_attempts} ---")
+        score, critique = score_and_critique_draft(current_draft)
+        print(f"Draft Score: {score}/10")
+        print(f"Critique: {critique}")
+
+        parsed = parse_llm_output(current_draft)
+
+        if score > best_score:
+            best_score = score
+            best_draft = current_draft
+            best_parsed_draft = parsed
+
+        if score >= 7.5:
+            print(f"Score {score} meets or exceeds target threshold of 7.5. Accepting draft.")
+            break
+
+        if attempt < max_attempts:
+            print(f"Score {score} is below threshold 7.5. Attempting to refine the draft...")
+            refine_prompt = get_refinement_prompt(current_draft, critique)
+            refined_draft = None
+            for model in models_to_try:
+                try:
+                    print(f"Requesting refinement from OpenRouter using {model}...")
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://github.com/Patrickk2/carbone-blog",
+                            "X-Title": "Carbone Blog Automated Refiner"
+                        },
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": refine_prompt}]
+                        },
+                        timeout=45
+                    )
+                    data = response.json()
+                    if "choices" in data:
+                        refined_draft = data["choices"][0]["message"]["content"]
+                        print("Successfully refined draft!")
+                        break
+                except Exception as e:
+                    print(f"Error refining with model {model}: {e}")
+            if refined_draft:
+                current_draft = refined_draft
+            else:
+                print("Could not refine draft. Stopping loop.")
+                break
+
+    return best_parsed_draft
 
 def parse_llm_output(text):
     """
     Parses LLM structured output into a dictionary.
     """
+    text_clean = text.strip()
+    if text_clean.startswith("```"):
+        text_clean = re.sub(r"^```\w*\n?", "", text_clean)
+        if text_clean.endswith("```"):
+            text_clean = text_clean[:-3].strip()
+
     category = "technology"
     title = "New Discoveries in Tech"
     excerpt = "An automated update on the latest developments."
     body_paragraphs = []
 
-    lines = text.strip().split("\n")
+    lines = text_clean.strip().split("\n")
     current_section = None
 
     for line in lines:
