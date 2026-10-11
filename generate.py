@@ -344,7 +344,7 @@ def render_post(meta: dict[str, Any], body: str, source: dict[str, str]) -> str:
     }
     for key, value in values.items():
         template = template.replace("{{" + key + "}}", value)
-    return template.replace("</body>", f'<!-- CARBONE_META {json.dumps(meta, ensure_ascii=False, separators=(",", ":"))} -->\n</body>")
+    return template.replace("</body>", f'<!-- CARBONE_META {json.dumps(meta, ensure_ascii=False, separators=(",", ":"))} -->\n</body>')
 
 
 def canonical_posts(posts: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
