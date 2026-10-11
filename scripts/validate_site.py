@@ -68,6 +68,8 @@ def validate_post(path: Path) -> tuple[int, dict]:
     canonical = f"{SITE_URL}/posts/{path.name}"
     if not re.search(rf'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']{re.escape(canonical)}["\']', text, re.I):
         fail(f"{path}: canonical URL mismatch")
+    if 'href="https://github.com/sudomarc"' not in text:
+        fail(f"{path}: missing Sudomarc engineering attribution")
     return number, meta
 
 def main() -> None:
@@ -106,13 +108,52 @@ def main() -> None:
     sitemap_urls = {el.findtext("s:loc", namespaces=ns) for el in sitemap.findall("s:url", ns)}
     if not expected_urls.issubset(sitemap_urls):
         fail("sitemap is missing canonical article URLs")
+    expected_pages = {
+        f"{SITE_URL}/",
+        f"{SITE_URL}/archive.html",
+        f"{SITE_URL}/topics.html",
+        f"{SITE_URL}/about.html",
+    }
+    if not expected_pages.issubset(sitemap_urls):
+        fail("sitemap is missing canonical public page URLs")
+    if f"{SITE_URL}/index.html" in sitemap_urls:
+        fail("sitemap must not list /index.html when the canonical homepage is /")
+
+    robots_path = ROOT / "robots.txt"
+    if not robots_path.exists():
+        fail("robots.txt is missing")
+    robots = robots_path.read_text(encoding="utf-8")
+    if f"Sitemap: {SITE_URL}/sitemap.xml" not in robots:
+        fail("robots.txt does not point to the public sitemap")
+
+    index_text = (ROOT / "index.html").read_text(encoding="utf-8")
+    json_ld_match = re.search(r'<script type=["\']application/ld\+json["\']>([\s\S]*?)</script>', index_text, re.I)
+    if not json_ld_match:
+        fail("index.html: WebSite structured data is missing")
+    try:
+        graph = json.loads(json_ld_match.group(1))
+    except json.JSONDecodeError as exc:
+        fail(f"index.html: invalid JSON-LD: {exc}")
+    nodes = graph.get("@graph", [])
+    website = next((node for node in nodes if node.get("@type") == "WebSite"), None)
+    person = next((node for node in nodes if node.get("@type") == "Person"), None)
+    if not website or website.get("url") != f"{SITE_URL}/" or website.get("name") != "Carbone Notes":
+        fail("index.html: WebSite structured data does not match canonical identity")
+    if not person or person.get("name") != "Sudomarc" or person.get("url") != "https://github.com/sudomarc":
+        fail("index.html: Sudomarc identity link is missing from structured data")
+
     for page in ("index.html", "archive.html", "topics.html", "about.html"):
         path = ROOT / page
         text = path.read_text(encoding="utf-8")
+        if 'href="https://github.com/sudomarc"' not in text:
+            fail(f"{page}: missing Sudomarc engineering attribution")
         if re.search(r"lorem ipsum|placeholder text|TODO", text, re.I):
             fail(f"{page}: placeholder text detected")
         if re.search(r"javascript:|<iframe|<object|<embed|\son\w+\s*=", text, re.I):
             fail(f"{page}: unsafe markup detected")
+    template_text = (POSTS / "post_template.html").read_text(encoding="utf-8")
+    if not re.search(r'<meta[^>]+name=["\']robots["\'][^>]+content=["\']noindex,follow["\']', template_text, re.I):
+        fail("posts/post_template.html: template must be noindex,follow")
     print(f"VERIFY OK: canonical_posts={len(canonical)} redirects={len(redirects)} RSS={len(items)} sitemap={len(sitemap_urls)}")
 
 if __name__ == "__main__":
