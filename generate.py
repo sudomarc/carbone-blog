@@ -417,7 +417,9 @@ def generate_sitemap(posts: list[dict[str, Any]]) -> None:
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     pages = [("index.html", latest, "daily", "1.0"), ("archive.html", latest, "weekly", "0.9"), ("topics.html", latest, "weekly", "0.8"), ("about.html", "2026-09-03T00:00:00+00:00", "monthly", "0.6")]
     for path, lastmod, freq, priority in pages:
-        lines += ["  <url>", f"    <loc>{SITE_URL}/{path}</loc>", f"    <lastmod>{parse_iso(lastmod).date().isoformat()}</lastmod>", f"    <changefreq>{freq}</changefreq>", f"    <priority>{priority}</priority>", "  </url>"]
+        # index.html backs the root canonical URL; do not expose /index.html as a duplicate.
+        url = f"{SITE_URL}/" if path == "index.html" else f"{SITE_URL}/{path}"
+        lines += ["  <url>", f"    <loc>{url}</loc>", f"    <lastmod>{parse_iso(lastmod).date().isoformat()}</lastmod>", f"    <changefreq>{freq}</changefreq>", f"    <priority>{priority}</priority>", "  </url>"]
     for p in sorted(posts, key=lambda x: parse_iso(x["published_at"]), reverse=True):
         lines += ["  <url>", f"    <loc>{SITE_URL}/posts/{p['slug']}.html</loc>", f"    <lastmod>{parse_iso(p['updated_at']).date().isoformat()}</lastmod>", "    <changefreq>weekly</changefreq>", "    <priority>0.6</priority>", "  </url>"]
     lines.append("</urlset>")
