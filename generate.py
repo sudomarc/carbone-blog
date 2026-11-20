@@ -519,7 +519,7 @@ Requirements:
 - one specific, non-clickbait title;
 - one clean-sentence excerpt;
 - SOURCE_INDEX must identify the chosen source using the exact one-based number shown in square brackets.
-- Valid SOURCE_INDEX values are 1 through {articles.length}; never use zero-based indexing and never return 0.
+- Valid SOURCE_INDEX values are 1 through {len(articles)}; never use zero-based indexing and never return 0.
 - SOURCE_INDEX must contain only one integer, without brackets, quotes, labels, or explanation.
 
 Output exactly:
