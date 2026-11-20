@@ -26,8 +26,12 @@ TEMPLATE = POSTS_DIR / "post_template.html"
 SITE_URL = os.environ.get("SITE_URL", "https://sudomarc.github.io/carbone-blog").rstrip("/")
 AUTHOR = os.environ.get("CARBONE_AUTHOR", "Carbone Notes")
 CATEGORIES = ("technology", "cybersecurity", "health", "science")
-MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto")
-FALLBACK_MODELS = [x.strip() for x in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if x.strip()]
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "nvidia").strip().lower()
+NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct").strip()
+NVIDIA_FALLBACK_MODELS = [x.strip() for x in os.environ.get("NVIDIA_FALLBACK_MODELS", "").split(",") if x.strip()]
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto").strip()
+OPENROUTER_FALLBACK_MODELS = [x.strip() for x in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if x.strip()]
 UNSPLASH_IMAGES = {
     "cybersecurity": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&h=675&q=82",
     "technology": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&h=675&q=82",
@@ -339,6 +343,116 @@ def openrouter_call(api_key: str, model: str, prompt: str) -> str:
         raise ValueError("OpenRouter returned empty content")
     return content
 
+
+def nvidia_nim_call(api_key: str, model: str, prompt: str) -> str:
+    try:
+        max_tokens = int(os.environ.get("NVIDIA_MAX_TOKENS", "2048"))
+    except ValueError as exc:
+        raise ValueError("NVIDIA_MAX_TOKENS must be a positive integer") from exc
+    if max_tokens <= 0:
+        raise ValueError("NVIDIA_MAX_TOKENS must be a positive integer")
+
+    response = requests.post(
+        f"{NVIDIA_BASE_URL}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are the editor of an independent publication. Write careful human prose, not marketing copy."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.45,
+            "max_tokens": max_tokens,
+        },
+        timeout=90,
+    )
+    log("GENERATION", f"provider=nvidia model={model} status={response.status_code}")
+
+    if response.status_code in {401, 403}:
+        fail("GENERATION", "authentication", f"NVIDIA NIM returned HTTP {response.status_code}")
+    if response.status_code != 200:
+        try:
+            error_payload = response.json().get("error", {})
+            detail = str(error_payload.get("message") or error_payload.get("detail") or error_payload.get("code") or "")
+        except (ValueError, AttributeError):
+            detail = ""
+        detail = re.sub(r"https?://\S+", "[provider URL redacted]", detail)
+        detail = detail.replace(api_key, "[REDACTED]")
+        if not detail:
+            detail = "no safe provider error detail available"
+        raise RuntimeError(f"NVIDIA NIM HTTP {response.status_code}: {detail[:180]}")
+
+    try:
+        content = response.json()["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise ValueError("NVIDIA NIM response missing usable message content") from exc
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("NVIDIA NIM returned empty content")
+    return content
+
+
+def selected_ai_provider() -> str:
+    provider = os.environ.get("AI_PROVIDER", "nvidia").strip().lower()
+    if provider not in {"nvidia", "openrouter"}:
+        raise ValueError("AI_PROVIDER must be either 'nvidia' or 'openrouter'")
+    return provider
+
+
+def require_ai_provider_key(provider: str) -> str:
+    if provider == "nvidia":
+        return require_secret("NVIDIA_API_KEY")
+    if provider == "openrouter":
+        return require_secret("OPENROUTER_API_KEY")
+    raise ValueError(f"unsupported AI provider: {provider}")
+
+
+def check_ai_provider_api(api_key: str, provider: str) -> None:
+    if provider == "nvidia":
+        base_url = NVIDIA_BASE_URL
+        provider_name = "NVIDIA NIM"
+        selected_model = NVIDIA_MODEL
+    elif provider == "openrouter":
+        base_url = "https://openrouter.ai/api/v1"
+        provider_name = "OpenRouter (legacy)"
+        selected_model = ""
+    else:
+        raise ValueError(f"unsupported AI provider: {provider}")
+
+    response = requests.get(
+        f"{base_url}/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=20,
+    )
+    if response.status_code in {401, 403}:
+        fail("CHECK API", "authentication", f"{provider_name} rejected the configured API key (HTTP {response.status_code})")
+    if response.status_code != 200:
+        fail("CHECK API", "provider", f"{provider_name} models endpoint returned HTTP {response.status_code}")
+
+    try:
+        payload = response.json()
+    except ValueError:
+        fail("CHECK API", "provider", f"{provider_name} returned invalid JSON from its models endpoint")
+
+    if provider == "nvidia":
+        model_entries = payload.get("data", []) if isinstance(payload, dict) else []
+        available_models = {
+            str(item.get("id", ""))
+            for item in model_entries
+            if isinstance(item, dict)
+        } if isinstance(model_entries, list) else set()
+        if available_models and selected_model not in available_models:
+            fail(
+                "CHECK API",
+                "model",
+                f"configured NVIDIA_MODEL is not listed by NVIDIA NIM: {selected_model}",
+            )
+        log("CHECK API", f"{provider_name} key accepted; model={selected_model}")
+    else:
+        log("CHECK API", f"{provider_name} key accepted")
+
 def build_generation_prompt(articles: list[dict[str, str]], recent: list[dict[str, Any]]) -> str:
     previous = "\n".join(f"- {p['title']}" for p in recent[-20:]) or "- none"
     sources = "\n".join(f"[{i}] {a['title']} — {a['description']} (source: {a['source']}; published: {a['publishedAt']}; url: {a['url']})" for i, a in enumerate(articles, 1))
@@ -371,19 +485,34 @@ BODY:
 """
 
 
-def generated_post(articles: list[dict[str, str]], recent: list[dict[str, Any]], api_key: str) -> tuple[dict[str, Any], str]:
+def generated_post(
+    articles: list[dict[str, str]],
+    recent: list[dict[str, Any]],
+    api_key: str,
+    provider: str | None = None,
+) -> tuple[dict[str, Any], str]:
+    active_provider = provider or selected_ai_provider()
+    if active_provider == "nvidia":
+        models = [NVIDIA_MODEL] + NVIDIA_FALLBACK_MODELS
+        call_model = nvidia_nim_call
+    elif active_provider == "openrouter":
+        models = [OPENROUTER_MODEL] + OPENROUTER_FALLBACK_MODELS
+        call_model = openrouter_call
+    else:
+        raise ValueError(f"unsupported AI provider: {active_provider}")
+
     prompt = build_generation_prompt(articles, recent)
     errors = []
-    for model in [MODEL] + FALLBACK_MODELS:
+    for model in models:
         try:
-            parsed = parse_llm_output(openrouter_call(api_key, model, prompt))
+            parsed = parse_llm_output(call_model(api_key, model, prompt))
             idx = parsed.get("source_index", 0)
             if not 1 <= idx <= len(articles):
                 raise ValueError("SOURCE_INDEX is outside source range")
             parsed["source"] = articles[idx - 1]
             if title_is_duplicate(parsed["title"], recent):
                 raise ValueError(f"title is too similar to existing coverage: {parsed['title']}")
-            return parsed, model
+            return parsed, f"{active_provider}:{model}"
         except Exception as exc:
             errors.append(f"{model}: {type(exc).__name__}: {exc}")
             log("GENERATION", errors[-1])
@@ -496,18 +625,17 @@ def main() -> None:
     log("START", datetime.now(timezone.utc).isoformat())
     if os.environ.get("LOCAL_TEST_MODE") == "1":
         fail("START", "configuration", "LOCAL_TEST_MODE must not be used in production")
-    openrouter_key = require_secret("OPENROUTER_API_KEY")
+    provider = selected_ai_provider()
+    provider_key = require_ai_provider_key(provider)
     news_key = require_secret("NEWS_API_KEY")
     if args.check_api:
-        r1 = requests.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {openrouter_key}"}, timeout=20)
-        if r1.status_code != 200:
-            fail("CHECK API", "openrouter", f"OpenRouter returned HTTP {r1.status_code}")
+        check_ai_provider_api(provider_key, provider)
         r2 = requests.get("https://newsapi.org/v2/top-headlines", params={"language": "en", "pageSize": 1, "apiKey": news_key}, timeout=20)
         if r2.status_code != 200:
             fail("CHECK API", "newsapi", f"NewsAPI returned HTTP {r2.status_code}")
         try:
             payload = r2.json()
-        except json.JSONDecodeError as exc:
+        except ValueError:
             fail("CHECK API", "newsapi", "NewsAPI returned invalid JSON")
         if payload.get("status") != "ok":
             fail("CHECK API", "newsapi", json.dumps(payload)[:500])
@@ -516,7 +644,7 @@ def main() -> None:
     migrate_legacy_posts()
     recent = canonical_posts()
     articles = fetch_latest_news(news_key)
-    draft, used_model = generated_post(articles, recent, openrouter_key)
+    draft, used_model = generated_post(articles, recent, provider_key, provider)
     published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     validate_generated_post({**draft, "published_at": published_at})
     next_id = max([p["id"] for p in recent] + [0]) + 1
