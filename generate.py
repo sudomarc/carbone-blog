@@ -261,7 +261,7 @@ def fetch_latest_news(api_key: str) -> list[dict[str, str]]:
 
 def openrouter_call(api_key: str, model: str, prompt: str) -> str:
     response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": SITE_URL, "X-Title": "Carbone Notes"},
-                             json={"model": model, "messages": [{"role": "system", "content": "You are the editor of an independent publication. Write careful human prose, not marketing copy."}, {"role": "user", "content": prompt}], "temperature": 0.45}, timeout=60)
+                             json={"model": model, "messages": [{"role": "system", "content": "You are the editor of an independent publication. Write careful human prose, not marketing copy."}, {"role": "user", "content": prompt}], "temperature": 0.45, "max_tokens": 4096}, timeout=60)
     log("GENERATION", f"model={model} status={response.status_code}")
     if response.status_code in {401, 403}:
         fail("GENERATION", "authentication", f"OpenRouter returned HTTP {response.status_code}")
