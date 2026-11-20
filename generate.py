@@ -300,7 +300,7 @@ def openrouter_call(api_key: str, model: str, prompt: str) -> str:
         except (ValueError, AttributeError):
             provider_message = ""
 
-        affordable = re.search(r"can only afford\\s+(\\d+)", provider_message, re.I)
+        affordable = re.search(r"can only afford\s+(\d+)", provider_message, re.I)
         if affordable:
             available_tokens = int(affordable.group(1))
             retry_tokens = available_tokens - 16
@@ -325,7 +325,7 @@ def openrouter_call(api_key: str, model: str, prompt: str) -> str:
             detail = str(error_payload.get("message") or error_payload.get("code") or "")
         except (ValueError, AttributeError):
             detail = ""
-        detail = re.sub(r"https?://\\S+", "[provider URL redacted]", detail)
+        detail = re.sub(r"https?://\S+", "[provider URL redacted]", detail)
         detail = detail.replace(api_key, "[REDACTED]")
         if not detail:
             detail = "no safe provider error detail available"
