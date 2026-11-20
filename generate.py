@@ -379,7 +379,7 @@ def nvidia_nim_call(api_key: str, model: str, prompt: str) -> str:
             detail = str(error_payload.get("message") or error_payload.get("detail") or error_payload.get("code") or "")
         except (ValueError, AttributeError):
             detail = ""
-        detail = re.sub(r"https?://\\S+", "[provider URL redacted]", detail)
+        detail = re.sub(r"https?://\S+", "[provider URL redacted]", detail)
         detail = detail.replace(api_key, "[REDACTED]")
         if not detail:
             detail = "no safe provider error detail available"
