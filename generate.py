@@ -235,7 +235,7 @@ def parse_llm_output(raw: str) -> dict[str, Any]:
     # Models sometimes wrap the requested integer in brackets or punctuation
     # (for example, "[3]" or "3."). Accept only a leading integer token so
     # explanatory text cannot silently select an unrelated source.
-    index_match = re.match(r"^\\s*\\[?([0-9]+)\\]?(?=$|[\\s.,:;)]])", raw_source_index)
+    index_match = re.match(r"^\s*\[?([0-9]+)\]?(?=$|[\s.,:;)]])", raw_source_index)
     source_index = int(index_match.group(1)) if index_match else None
     return {"category": sections.get("CATEGORY", "").strip().lower(), "title": clean_text(sections.get("TITLE", "")),
             "excerpt": clean_text(sections.get("EXCERPT", "")), "body": sections.get("BODY", "").strip(),
@@ -564,7 +564,7 @@ def generated_post(
                 )
                 retry_prompt = (
                     prompt
-                    + "\\n\\nFORMAT CORRECTION: Your previous answer selected an invalid SOURCE_INDEX. "
+                    + "\n\nFORMAT CORRECTION: Your previous answer selected an invalid SOURCE_INDEX. "
                     + f"Choose exactly one source number from 1..{len(articles)} (one-based, not zero-based). "
                     + "Return the complete article again and put only that integer after SOURCE_INDEX:. "
                     + "Do not invent or alter the selected source."
