@@ -30,6 +30,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test OpenRouter budget handling
+        run: python -m unittest discover -s tests -v
       - name: Compile publishing and validation scripts
         run: python -m py_compile generate.py scripts/validate_site.py
       - name: Validate canonical posts, RSS, sitemap and SEO signals
@@ -48,6 +52,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test OpenRouter budget handling
+        run: python -m unittest discover -s tests -v
       - name: Verify publishing code
         run: python -m py_compile generate.py scripts/validate_site.py
       - name: Validate published site
@@ -90,6 +98,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test OpenRouter budget handling
+        run: python -m unittest discover -s tests -v
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Require main for manual publishing
