@@ -28,7 +28,7 @@ AUTHOR = os.environ.get("CARBONE_AUTHOR", "Carbone Notes")
 CATEGORIES = ("technology", "cybersecurity", "health", "science")
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "nvidia").strip().lower()
 NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
-NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct").strip()
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
 NVIDIA_FALLBACK_MODELS = [x.strip() for x in os.environ.get("NVIDIA_FALLBACK_MODELS", "").split(",") if x.strip()]
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto").strip()
 OPENROUTER_FALLBACK_MODELS = [x.strip() for x in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if x.strip()]
@@ -410,6 +410,8 @@ def require_ai_provider_key(provider: str) -> str:
 
 
 def check_ai_provider_api(api_key: str, provider: str) -> None:
+    global NVIDIA_MODEL
+
     if provider == "nvidia":
         base_url = NVIDIA_BASE_URL
         provider_name = "NVIDIA NIM"
@@ -443,13 +445,34 @@ def check_ai_provider_api(api_key: str, provider: str) -> None:
             for item in model_entries
             if isinstance(item, dict)
         } if isinstance(model_entries, list) else set()
-        if available_models and selected_model not in available_models:
-            fail(
-                "CHECK API",
-                "model",
-                f"configured NVIDIA_MODEL is not listed by NVIDIA NIM: {selected_model}",
+
+        # The former default's hosted free endpoint is deprecated by NVIDIA.
+        retired_models = {"meta/llama-3.3-70b-instruct"}
+        if available_models:
+            candidates = list(dict.fromkeys(
+                [selected_model] + NVIDIA_FALLBACK_MODELS + ["nvidia/nemotron-3.5-lightning-30b-a3b"]
+            ))
+            chosen_model = next(
+                (model for model in candidates if model in available_models and model not in retired_models),
+                None,
             )
-        log("CHECK API", f"{provider_name} key accepted; model={selected_model}")
+            if chosen_model is None:
+                sample = ", ".join(sorted(available_models)[:12]) or "(empty)"
+                fail(
+                    "CHECK API",
+                    "model",
+                    f"no configured NVIDIA model is available on this API key; "
+                    f"configured={selected_model}; available models include: {sample}",
+                )
+            if chosen_model != selected_model:
+                log(
+                    "CHECK API",
+                    f"configured model {selected_model} is unavailable or retired; "
+                    f"using available NVIDIA model {chosen_model}",
+                )
+                NVIDIA_MODEL = chosen_model
+
+        log("CHECK API", f"{provider_name} key accepted; model={NVIDIA_MODEL}")
     else:
         log("CHECK API", f"{provider_name} key accepted")
 

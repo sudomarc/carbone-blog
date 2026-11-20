@@ -52,6 +52,38 @@ class NvidiaNimTests(unittest.TestCase):
         self.assertNotIn("https://integrate.api.nvidia.com/", message)
         self.assertIn("[provider URL redacted]", message)
 
+    def test_switches_to_an_available_model_when_configured_model_is_retired(self) -> None:
+        payload = {
+            "data": [
+                {"id": "nvidia/nemotron-3.5-lightning-30b-a3b"},
+                {"id": "meta/llama-3.3-70b-instruct"},
+            ]
+        }
+        with patch.object(generate, "NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"):
+            with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
+                with patch.object(generate, "NVIDIA_BASE_URL", "https://nim.example/v1"):
+                    with patch(
+                        "generate.requests.get",
+                        return_value=FakeResponse(200, payload),
+                    ):
+                        generate.check_ai_provider_api("nvidia-test-key", "nvidia")
+                self.assertEqual(
+                    generate.NVIDIA_MODEL,
+                    "nvidia/nemotron-3.5-lightning-30b-a3b",
+                )
+
+    def test_reports_available_models_when_no_supported_model_is_listed(self) -> None:
+        payload = {"data": [{"id": "some/other-model"}]}
+        with patch.object(generate, "NVIDIA_MODEL", "meta/llama-3.3-70b-instruct"):
+            with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
+                with patch.object(generate, "NVIDIA_BASE_URL", "https://nim.example/v1"):
+                    with patch(
+                        "generate.requests.get",
+                        return_value=FakeResponse(200, payload),
+                    ):
+                        with self.assertRaisesRegex(RuntimeError, "available models include"):
+                            generate.check_ai_provider_api("nvidia-test-key", "nvidia")
+
     def test_nvidia_is_the_default_provider(self) -> None:
         with patch.dict(os.environ, {"AI_PROVIDER": "nvidia"}):
             self.assertEqual(generate.selected_ai_provider(), "nvidia")

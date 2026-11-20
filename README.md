@@ -61,7 +61,7 @@ The publishing workflow uses **NVIDIA NIM by default**.
 
 1. Add the repository secret `NVIDIA_API_KEY` in GitHub → Settings → Secrets and variables → Actions.
 2. Keep `NEWS_API_KEY` configured for source retrieval.
-3. Optionally set the repository variable `NVIDIA_MODEL` (default: `meta/llama-3.3-70b-instruct`) and `NVIDIA_MAX_TOKENS` (default: `2048`).
+3. Optionally set the repository variable `NVIDIA_MODEL` (default: `nvidia/nemotron-3.5-lightning-30b-a3b`) and `NVIDIA_MAX_TOKENS` (default: `2048`).
 
 NVIDIA NIM uses the OpenAI-compatible `/v1/chat/completions` endpoint at `https://integrate.api.nvidia.com/v1`.
 
