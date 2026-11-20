@@ -41,14 +41,14 @@ class NvidiaNimTests(unittest.TestCase):
 
     def test_parse_source_index_accepts_brackets_and_trailing_punctuation(self) -> None:
         bracketed = generate.parse_llm_output(
-            "CATEGORY: technology\\nTITLE: A sufficiently descriptive test title\\n"
-            "EXCERPT: A sufficiently descriptive excerpt for this test.\\n"
-            "SOURCE_INDEX: [2]\\nBODY:\\n<p>Body text.</p>"
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: [2]\nBODY:\n<p>Body text.</p>"
         )
         punctuated = generate.parse_llm_output(
-            "CATEGORY: technology\\nTITLE: A sufficiently descriptive test title\\n"
-            "EXCERPT: A sufficiently descriptive excerpt for this test.\\n"
-            "SOURCE_INDEX: 3.\\nBODY:\\n<p>Body text.</p>"
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 3.\nBODY:\n<p>Body text.</p>"
         )
         self.assertEqual(bracketed["source_index"], 2)
         self.assertEqual(punctuated["source_index"], 3)
@@ -64,14 +64,14 @@ class NvidiaNimTests(unittest.TestCase):
             }
         ]
         invalid = (
-            "CATEGORY: technology\\nTITLE: A sufficiently descriptive test title\\n"
-            "EXCERPT: A sufficiently descriptive excerpt for this test.\\n"
-            "SOURCE_INDEX: 0\\nBODY:\\n<p>Body text.</p>"
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 0\nBODY:\n<p>Body text.</p>"
         )
         valid = (
-            "CATEGORY: technology\\nTITLE: A sufficiently descriptive test title\\n"
-            "EXCERPT: A sufficiently descriptive excerpt for this test.\\n"
-            "SOURCE_INDEX: 1\\nBODY:\\n<p>Body text.</p>"
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 1\nBODY:\n<p>Body text.</p>"
         )
         with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
             with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
