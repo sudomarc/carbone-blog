@@ -113,7 +113,7 @@ jobs:
         env:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
           NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
-          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
+          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b' }}
           OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/auto' }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
@@ -147,7 +147,7 @@ jobs:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
           NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
           NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
-          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
+          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b' }}
           OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/auto' }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
@@ -157,7 +157,7 @@ jobs:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
           NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
           NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
-          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
+          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b' }}
           NVIDIA_FALLBACK_MODELS: ${{ vars.NVIDIA_FALLBACK_MODELS || '' }}
           NVIDIA_MAX_TOKENS: ${{ vars.NVIDIA_MAX_TOKENS || '2048' }}
           OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
