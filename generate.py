@@ -352,7 +352,7 @@ Sources:
 
 Requirements:
 - precise, informed, natural prose;
-- 4–7 substantial paragraphs, using h2 headings only when helpful;
+- BODY must be 500–520 words in 4–7 substantial paragraphs; use h2 headings only when helpful and keep HTML concise;
 - no hype, generic intros or corporate language;
 - no unsupported causal claims for health or security topics;
 - one specific, non-clickbait title;
