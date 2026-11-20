@@ -366,6 +366,9 @@ def nvidia_nim_call(api_key: str, model: str, prompt: str) -> str:
             ],
             "temperature": 0.45,
             "max_tokens": max_tokens,
+            # Nemotron spends its token budget on internal reasoning by default.
+            # Editorial generation needs the visible final answer, not a reasoning trace.
+            "chat_template_kwargs": {"enable_thinking": False},
         },
         timeout=90,
     )
@@ -386,11 +389,29 @@ def nvidia_nim_call(api_key: str, model: str, prompt: str) -> str:
         raise RuntimeError(f"NVIDIA NIM HTTP {response.status_code}: {detail[:180]}")
 
     try:
-        content = response.json()["choices"][0]["message"]["content"]
+        payload = response.json()
+        choice = payload["choices"][0]
+        content = choice["message"].get("content")
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise ValueError("NVIDIA NIM response missing usable message content") from exc
     if not isinstance(content, str) or not content.strip():
-        raise ValueError("NVIDIA NIM returned empty content")
+        # Keep diagnostics metadata-only: never log model output or request contents.
+        diagnostics = []
+        finish_reason = choice.get("finish_reason")
+        if isinstance(finish_reason, str):
+            diagnostics.append(f"finish_reason={finish_reason}")
+        usage = payload.get("usage", {})
+        if isinstance(usage, dict):
+            completion_tokens = usage.get("completion_tokens")
+            if isinstance(completion_tokens, int):
+                diagnostics.append(f"completion_tokens={completion_tokens}")
+            details = usage.get("completion_tokens_details", {})
+            if isinstance(details, dict):
+                reasoning_tokens = details.get("reasoning_tokens")
+                if isinstance(reasoning_tokens, int):
+                    diagnostics.append(f"reasoning_tokens={reasoning_tokens}")
+        suffix = f" ({', '.join(diagnostics)})" if diagnostics else ""
+        raise ValueError(f"NVIDIA NIM returned empty content{suffix}")
     return content
 
 
