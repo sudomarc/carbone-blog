@@ -260,21 +260,84 @@ def fetch_latest_news(api_key: str) -> list[dict[str, str]]:
 
 
 def openrouter_call(api_key: str, model: str, prompt: str) -> str:
-    response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": SITE_URL, "X-Title": "Carbone Notes"},
-                             json={"model": model, "messages": [{"role": "system", "content": "You are the editor of an independent publication. Write careful human prose, not marketing copy."}, {"role": "user", "content": prompt}], "temperature": 0.45, "max_tokens": 4096}, timeout=60)
+    try:
+        max_tokens = int(os.environ.get("OPENROUTER_MAX_TOKENS", "760"))
+    except ValueError as exc:
+        raise ValueError("OPENROUTER_MAX_TOKENS must be a positive integer") from exc
+    if max_tokens <= 0:
+        raise ValueError("OPENROUTER_MAX_TOKENS must be a positive integer")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": SITE_URL,
+        "X-Title": "Carbone Notes",
+    }
+
+    def send(token_limit: int) -> requests.Response:
+        return requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": "You are the editor of an independent publication. Write careful human prose, not marketing copy."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.45,
+                "max_tokens": token_limit,
+            },
+            timeout=60,
+        )
+
+    response = send(max_tokens)
     log("GENERATION", f"model={model} status={response.status_code}")
+
+    if response.status_code == 402:
+        try:
+            error_payload = response.json().get("error", {})
+            provider_message = str(error_payload.get("message", ""))
+        except (ValueError, AttributeError):
+            provider_message = ""
+
+        affordable = re.search(r"can only afford\\s+(\\d+)", provider_message, re.I)
+        if affordable:
+            available_tokens = int(affordable.group(1))
+            retry_tokens = available_tokens - 16
+            if 680 <= retry_tokens < max_tokens:
+                log(
+                    "GENERATION",
+                    f"provider budget is {available_tokens} output tokens; retrying with {retry_tokens}",
+                )
+                response = send(retry_tokens)
+                log("GENERATION", f"model={model} retry_status={response.status_code}")
+            elif retry_tokens < 680:
+                raise RuntimeError(
+                    "OpenRouter credits are insufficient for the 500-word article minimum: "
+                    f"the provider allows {available_tokens} output tokens; at least 696 are needed."
+                )
+
     if response.status_code in {401, 403}:
         fail("GENERATION", "authentication", f"OpenRouter returned HTTP {response.status_code}")
     if response.status_code != 200:
-        raise RuntimeError(f"OpenRouter HTTP {response.status_code}: {response.text[:250]}")
+        try:
+            error_payload = response.json().get("error", {})
+            detail = str(error_payload.get("message") or error_payload.get("code") or "")
+        except (ValueError, AttributeError):
+            detail = ""
+        detail = re.sub(r"https?://\\S+", "[provider URL redacted]", detail)
+        detail = detail.replace(api_key, "[REDACTED]")
+        if not detail:
+            detail = "no safe provider error detail available"
+        raise RuntimeError(f"OpenRouter HTTP {response.status_code}: {detail[:180]}")
+
     try:
         content = response.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise ValueError("OpenRouter response missing usable message content") from exc
     if not isinstance(content, str) or not content.strip():
         raise ValueError("OpenRouter returned empty content")
     return content
-
 
 def build_generation_prompt(articles: list[dict[str, str]], recent: list[dict[str, Any]]) -> str:
     previous = "\n".join(f"- {p['title']}" for p in recent[-20:]) or "- none"
