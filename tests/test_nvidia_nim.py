@@ -39,6 +39,52 @@ class NvidiaNimTests(unittest.TestCase):
             {"enable_thinking": False},
         )
 
+    def test_parse_source_index_accepts_brackets_and_trailing_punctuation(self) -> None:
+        bracketed = generate.parse_llm_output(
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: [2]\nBODY:\n<p>Body text.</p>"
+        )
+        punctuated = generate.parse_llm_output(
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 3.\nBODY:\n<p>Body text.</p>"
+        )
+        self.assertEqual(bracketed["source_index"], 2)
+        self.assertEqual(punctuated["source_index"], 3)
+
+    def test_retries_once_when_model_returns_invalid_source_index(self) -> None:
+        articles = [
+            {
+                "title": "A source article title",
+                "description": "Source description",
+                "url": "https://example.com/source",
+                "source": "Example",
+                "publishedAt": "2026-11-20T00:00:00Z",
+            }
+        ]
+        invalid = (
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 0\nBODY:\n<p>Body text.</p>"
+        )
+        valid = (
+            "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
+            "SOURCE_INDEX: 1\nBODY:\n<p>Body text.</p>"
+        )
+        with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
+            with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
+                with patch("generate.nvidia_nim_call", side_effect=[invalid, valid]) as call:
+                    with patch("generate.title_is_duplicate", return_value=False):
+                        result, model = generate.generated_post(
+                            articles, [], "nvidia-test-key", provider="nvidia"
+                        )
+        self.assertEqual(call.call_count, 2)
+        self.assertIn("one-based", call.call_args.args[2])
+        self.assertEqual(result["source"], articles[0])
+        self.assertEqual(model, "nvidia:nvidia/test-model")
+
     def test_reports_empty_nemotron_answer_without_leaking_response_content(self) -> None:
         response = FakeResponse(
             200,

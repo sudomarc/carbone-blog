@@ -231,12 +231,15 @@ def parse_llm_output(raw: str) -> dict[str, Any]:
             sections[current] = match.group(2).strip()
         elif current:
             sections[current] += "\n" + line
-    try:
-        source_index = int(sections.get("SOURCE_INDEX", "0"))
-    except ValueError:
-        source_index = 0
+    raw_source_index = sections.get("SOURCE_INDEX", "").strip()
+    # Models sometimes wrap the requested integer in brackets or punctuation
+    # (for example, "[3]" or "3."). Accept only a leading integer token so
+    # explanatory text cannot silently select an unrelated source.
+    index_match = re.match(r"^\s*\[?([0-9]+)\]?(?=$|[\s.,:;)])", raw_source_index)
+    source_index = int(index_match.group(1)) if index_match else None
     return {"category": sections.get("CATEGORY", "").strip().lower(), "title": clean_text(sections.get("TITLE", "")),
-            "excerpt": clean_text(sections.get("EXCERPT", "")), "body": sections.get("BODY", "").strip(), "source_index": source_index}
+            "excerpt": clean_text(sections.get("EXCERPT", "")), "body": sections.get("BODY", "").strip(),
+            "source_index": source_index, "source_index_raw": raw_source_index}
 
 
 def fetch_latest_news(api_key: str) -> list[dict[str, str]]:
@@ -515,13 +518,15 @@ Requirements:
 - no unsupported causal claims for health or security topics;
 - one specific, non-clickbait title;
 - one clean-sentence excerpt;
-- SOURCE_INDEX must match the chosen source.
+- SOURCE_INDEX must identify the chosen source using the exact one-based number shown in square brackets.
+- Valid SOURCE_INDEX values are 1 through {len(articles)}; never use zero-based indexing and never return 0.
+- SOURCE_INDEX must contain only one integer, without brackets, quotes, labels, or explanation.
 
 Output exactly:
 CATEGORY: technology|cybersecurity|health|science
 TITLE: ...
 EXCERPT: ...
-SOURCE_INDEX: integer
+SOURCE_INDEX: 1
 BODY:
 <p>...</p>
 <h2>...</h2>
@@ -550,9 +555,27 @@ def generated_post(
     for model in models:
         try:
             parsed = parse_llm_output(call_model(api_key, model, prompt))
-            idx = parsed.get("source_index", 0)
-            if not 1 <= idx <= len(articles):
-                raise ValueError("SOURCE_INDEX is outside source range")
+            idx = parsed.get("source_index")
+            if not isinstance(idx, int) or not 1 <= idx <= len(articles):
+                log(
+                    "GENERATION",
+                    f"{model} returned invalid SOURCE_INDEX={idx!r}; "
+                    f"valid range is 1..{len(articles)}; retrying once with explicit bounds",
+                )
+                retry_prompt = (
+                    prompt
+                    + "\n\nFORMAT CORRECTION: Your previous answer selected an invalid SOURCE_INDEX. "
+                    + f"Choose exactly one source number from 1..{len(articles)} (one-based, not zero-based). "
+                    + "Return the complete article again and put only that integer after SOURCE_INDEX:. "
+                    + "Do not invent or alter the selected source."
+                )
+                parsed = parse_llm_output(call_model(api_key, model, retry_prompt))
+                idx = parsed.get("source_index")
+            if not isinstance(idx, int) or not 1 <= idx <= len(articles):
+                raise ValueError(
+                    f"SOURCE_INDEX {idx!r} is outside the valid one-based range 1..{len(articles)} "
+                    "after one format retry"
+                )
             parsed["source"] = articles[idx - 1]
             if title_is_duplicate(parsed["title"], recent):
                 raise ValueError(f"title is too similar to existing coverage: {parsed['title']}")
