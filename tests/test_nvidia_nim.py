@@ -71,7 +71,7 @@ class NvidiaNimTests(unittest.TestCase):
         valid = (
             "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
             "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
-            "SOURCE_INDEX: 1\\nBODY:\\n<p>" + " ".join(["editorial"] * 500) + "</p>"
+            "SOURCE_INDEX: 1\nBODY:\n<p>" + " ".join(["editorial"] * 500) + "</p>"
         )
         with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
             with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
@@ -135,6 +135,7 @@ class NvidiaNimTests(unittest.TestCase):
             "TITLE: A sufficiently descriptive editorial title\n"
             "EXCERPT: A sufficiently descriptive excerpt for this article.\n"
             "SOURCE_INDEX: 1\n"
+            "BODY:\n"
             "<p>" + " ".join(["draft"] * 250) + "</p>"
         )
         with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
