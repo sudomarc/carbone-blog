@@ -34,6 +34,35 @@ class NvidiaNimTests(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer nvidia-test-key")
         self.assertEqual(post.call_args.kwargs["json"]["model"], "meta/test-model")
         self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 1800)
+        self.assertEqual(
+            post.call_args.kwargs["json"]["chat_template_kwargs"],
+            {"enable_thinking": False},
+        )
+
+    def test_reports_empty_nemotron_answer_without_leaking_response_content(self) -> None:
+        response = FakeResponse(
+            200,
+            {
+                "choices": [
+                    {
+                        "message": {"content": ""},
+                        "finish_reason": "length",
+                    }
+                ],
+                "usage": {
+                    "completion_tokens": 2048,
+                    "completion_tokens_details": {"reasoning_tokens": 2048},
+                },
+            },
+        )
+        with patch.object(generate, "NVIDIA_BASE_URL", "https://nim.example/v1"):
+            with patch.dict(os.environ, {"NVIDIA_MAX_TOKENS": "2048"}):
+                with patch("generate.requests.post", return_value=response):
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        "finish_reason=length, completion_tokens=2048, reasoning_tokens=2048",
+                    ):
+                        generate.nvidia_nim_call("nvidia-test-key", "nvidia/test-model", "test prompt")
 
     def test_redacts_key_and_provider_urls_on_error(self) -> None:
         secret = "nvidia-test-secret"
