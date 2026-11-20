@@ -112,9 +112,9 @@ jobs:
       - name: Validate provider configuration
         env:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
           NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/auto' }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
         run: |
@@ -145,22 +145,22 @@ jobs:
       - name: Verify API access
         env:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
           NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
           NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/auto' }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
         run: python generate.py --check-api
       - name: Fetch sources, generate and render article
         env:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'nvidia' }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_API_KEY: ${{ vars.AI_PROVIDER != 'openrouter' && secrets.NVIDIA_API_KEY || '' }}
           NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
           NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct' }}
           NVIDIA_FALLBACK_MODELS: ${{ vars.NVIDIA_FALLBACK_MODELS || '' }}
           NVIDIA_MAX_TOKENS: ${{ vars.NVIDIA_MAX_TOKENS || '2048' }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_API_KEY: ${{ vars.AI_PROVIDER == 'openrouter' && secrets.OPENROUTER_API_KEY || '' }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/auto' }}
           OPENROUTER_FALLBACK_MODELS: ${{ vars.OPENROUTER_FALLBACK_MODELS || '' }}
           OPENROUTER_MAX_TOKENS: ${{ vars.OPENROUTER_MAX_TOKENS || '760' }}
