@@ -349,7 +349,7 @@ def openrouter_call(api_key: str, model: str, prompt: str) -> str:
 
 def nvidia_nim_call(api_key: str, model: str, prompt: str) -> str:
     try:
-        max_tokens = int(os.environ.get("NVIDIA_MAX_TOKENS", "2048"))
+        max_tokens = int(os.environ.get("NVIDIA_MAX_TOKENS", "4096"))
     except ValueError as exc:
         raise ValueError("NVIDIA_MAX_TOKENS must be a positive integer") from exc
     if max_tokens <= 0:
@@ -552,34 +552,71 @@ def generated_post(
 
     prompt = build_generation_prompt(articles, recent)
     errors = []
+    max_draft_attempts = 3
+    validation_timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
     for model in models:
         try:
-            parsed = parse_llm_output(call_model(api_key, model, prompt))
-            idx = parsed.get("source_index")
-            if not isinstance(idx, int) or not 1 <= idx <= len(articles):
-                log(
-                    "GENERATION",
-                    f"{model} returned invalid SOURCE_INDEX={idx!r}; "
-                    f"valid range is 1..{len(articles)}; retrying once with explicit bounds",
-                )
-                retry_prompt = (
-                    prompt
-                    + "\n\nFORMAT CORRECTION: Your previous answer selected an invalid SOURCE_INDEX. "
-                    + f"Choose exactly one source number from 1..{len(articles)} (one-based, not zero-based). "
-                    + "Return the complete article again and put only that integer after SOURCE_INDEX:. "
-                    + "Do not invent or alter the selected source."
-                )
-                parsed = parse_llm_output(call_model(api_key, model, retry_prompt))
+            attempt_prompt = prompt
+            last_issue = "no valid draft returned"
+            for attempt in range(max_draft_attempts):
+                parsed = parse_llm_output(call_model(api_key, model, attempt_prompt))
                 idx = parsed.get("source_index")
-            if not isinstance(idx, int) or not 1 <= idx <= len(articles):
-                raise ValueError(
-                    f"SOURCE_INDEX {idx!r} is outside the valid one-based range 1..{len(articles)} "
-                    "after one format retry"
-                )
-            parsed["source"] = articles[idx - 1]
-            if title_is_duplicate(parsed["title"], recent):
-                raise ValueError(f"title is too similar to existing coverage: {parsed['title']}")
-            return parsed, f"{active_provider}:{model}"
+
+                if not isinstance(idx, int) or not 1 <= idx <= len(articles):
+                    last_issue = (
+                        f"SOURCE_INDEX {idx!r} is outside the valid one-based range "
+                        f"1..{len(articles)}"
+                    )
+                    log("GENERATION", f"{model} attempt={attempt + 1}: {last_issue}")
+                else:
+                    parsed["source"] = articles[idx - 1]
+                    try:
+                        validate_generated_post({**parsed, "published_at": validation_timestamp})
+                        if title_is_duplicate(parsed["title"], recent):
+                            raise ValueError("title is too similar to existing coverage")
+                        return parsed, f"{active_provider}:{model}"
+                    except ValueError as exc:
+                        last_issue = str(exc)
+                        if last_issue == "body is too short":
+                            word_count = len(clean_text(parsed.get("body", "")).split())
+                            last_issue = f"body is too short ({word_count} words; minimum 500)"
+                        log("GENERATION", f"{model} attempt={attempt + 1}: draft rejected: {last_issue}")
+
+                if attempt + 1 < max_draft_attempts:
+                    correction = (
+                        "REVISION REQUIRED: Your previous complete draft failed a mandatory publisher check. "
+                        "Regenerate the entire article; do not return an addendum or a summary. "
+                    )
+                    if not isinstance(idx, int) or not 1 <= idx <= len(articles):
+                        correction += (
+                            f"Choose exactly one real source number from 1..{len(articles)} "
+                            "(one-based, not zero-based). Put only that integer after SOURCE_INDEX:. "
+                            "Do not invent or change a source."
+                        )
+                    elif "body is too short" in last_issue:
+                        correction += (
+                            f"The previous article body had {len(clean_text(parsed.get('body', '')).split())} words. "
+                            "Write 500–520 words of visible article text after HTML tags are stripped; "
+                            "aim for 510 words across 4–7 substantial paragraphs. "
+                            f"Keep SOURCE_INDEX exactly {idx} and use only that source."
+                        )
+                    elif "title is too similar" in last_issue:
+                        correction += (
+                            "Choose a distinct, non-duplicate title while keeping the same verified source "
+                            f"(SOURCE_INDEX: {idx})."
+                        )
+                    else:
+                        correction += (
+                            "Re-check every original requirement: valid category, title and excerpt lengths, "
+                            "500–520 body words, safe concise HTML, no generic banned phrasing, and the same "
+                            f"verified source (SOURCE_INDEX: {idx})."
+                        )
+                    attempt_prompt = prompt + "\n\n" + correction
+
+            raise ValueError(
+                f"draft failed validation after {max_draft_attempts} attempts: {last_issue}"
+            )
         except Exception as exc:
             errors.append(f"{model}: {type(exc).__name__}: {exc}")
             log("GENERATION", errors[-1])
