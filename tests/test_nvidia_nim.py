@@ -71,7 +71,7 @@ class NvidiaNimTests(unittest.TestCase):
         valid = (
             "CATEGORY: technology\nTITLE: A sufficiently descriptive test title\n"
             "EXCERPT: A sufficiently descriptive excerpt for this test.\n"
-            "SOURCE_INDEX: 1\nBODY:\n<p>Body text.</p>"
+            `SOURCE_INDEX: 1\nBODY:\n<p>${"editorial ".repeat(500).trim()}</p>`
         )
         with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
             with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
@@ -84,6 +84,70 @@ class NvidiaNimTests(unittest.TestCase):
         self.assertIn("one-based", call.call_args.args[2])
         self.assertEqual(result["source"], articles[0])
         self.assertEqual(model, "nvidia:nvidia/test-model")
+
+    def test_retries_when_article_body_is_too_short(self) -> None:
+        article = {
+            "title": "A source article title",
+            "description": "Source description",
+            "url": "https://example.com/source",
+            "source": "Example",
+            "publishedAt": "2026-11-20T00:00:00Z",
+        }
+        short_body = "<p>" + " ".join(["draft"] * 250) + "</p>"
+        complete_body = "<p>" + " ".join(["editorial"] * 510) + "</p>"
+
+        def output(body: str) -> str:
+            return (
+                "CATEGORY: technology\\n"
+                "TITLE: A sufficiently descriptive editorial title\\n"
+                "EXCERPT: A sufficiently descriptive excerpt for this article.\\n"
+                "SOURCE_INDEX: 1\\n"
+                f"BODY:\\n{body}"
+            )
+
+        with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
+            with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
+                with patch(
+                    "generate.nvidia_nim_call",
+                    side_effect=[output(short_body), output(complete_body)],
+                ) as call:
+                    with patch("generate.title_is_duplicate", return_value=False):
+                        result, model = generate.generated_post(
+                            [article], [], "nvidia-test-key", provider="nvidia"
+                        )
+
+        self.assertEqual(call.call_count, 2)
+        self.assertIn("500–520 words", call.call_args.args[2])
+        self.assertEqual(len(generate.clean_text(result["body"]).split()), 510)
+        self.assertEqual(result["source"], article)
+        self.assertEqual(model, "nvidia:nvidia/test-model")
+
+    def test_does_not_return_a_short_article_after_retry_limit(self) -> None:
+        article = {
+            "title": "A source article title",
+            "description": "Source description",
+            "url": "https://example.com/source",
+            "source": "Example",
+            "publishedAt": "2026-11-20T00:00:00Z",
+        }
+        short_output = (
+            "CATEGORY: technology\\n"
+            "TITLE: A sufficiently descriptive editorial title\\n"
+            "EXCERPT: A sufficiently descriptive excerpt for this article.\\n"
+            "SOURCE_INDEX: 1\\n"
+            "<p>" + " ".join(["draft"] * 250) + "</p>"
+        )
+        with patch.object(generate, "NVIDIA_MODEL", "nvidia/test-model"):
+            with patch.object(generate, "NVIDIA_FALLBACK_MODELS", []):
+                with patch("generate.nvidia_nim_call", return_value=short_output) as call:
+                    with patch("generate.title_is_duplicate", return_value=False):
+                        with self.assertRaisesRegex(
+                            RuntimeError, "draft failed validation after 3 attempts"
+                        ):
+                            generate.generated_post(
+                                [article], [], "nvidia-test-key", provider="nvidia"
+                            )
+        self.assertEqual(call.call_count, 3)
 
     def test_reports_empty_nemotron_answer_without_leaking_response_content(self) -> None:
         response = FakeResponse(
